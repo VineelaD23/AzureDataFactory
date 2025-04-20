@@ -1,0 +1,217 @@
+{
+	"name": "CustomerGold",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorage1",
+						"type": "LinkedServiceReference"
+					},
+					"name": "SilverSourceFileCustomer"
+				},
+				{
+					"linkedService": {
+						"referenceName": "AzureSqlDatabase1",
+						"type": "LinkedServiceReference"
+					},
+					"name": "TargetSQLTableCustomers"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "AzureSqlDatabase1",
+						"type": "LinkedServiceReference"
+					},
+					"name": "InsertRowsSQLDatabaseCustomers"
+				},
+				{
+					"linkedService": {
+						"referenceName": "AzureSqlDatabase1",
+						"type": "LinkedServiceReference"
+					},
+					"name": "UpdateRowsSQLDatabaseCustomer"
+				}
+			],
+			"transformations": [
+				{
+					"name": "RenameSourceFile"
+				},
+				{
+					"name": "Hashkey"
+				},
+				{
+					"name": "lookupTargetSourceFiles"
+				},
+				{
+					"name": "SplitNewandExistingRows"
+				},
+				{
+					"name": "InsertAuditColumns"
+				},
+				{
+					"name": "UpdateAuditColumns"
+				},
+				{
+					"name": "UpdateRows"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          customer_id as short,",
+				"          first_name as string,",
+				"          last_name as string,",
+				"          address as string,",
+				"          city as string,",
+				"          state as string,",
+				"          zip as string",
+				"     ),",
+				"     useSchema: false,",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     moveFiles: ['/SilverLayer/Customers','ArchieveSilver/Customers'],",
+				"     format: 'delimited',",
+				"     fileSystem: 'projectbootcamp1',",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true,",
+				"     wildcardPaths:['SilverLayer/Customers/par*.csv']) ~> SilverSourceFileCustomer",
+				"source(output(",
+				"          customer_id as integer,",
+				"          first_name as string,",
+				"          last_name as string,",
+				"          address as string,",
+				"          city as string,",
+				"          state as string,",
+				"          zip as string,",
+				"          hashkey as long,",
+				"          createdBy as string,",
+				"          createdDate as timestamp,",
+				"          updatedDate as timestamp,",
+				"          updatedBy as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table',",
+				"     store: 'sqlserver',",
+				"     schemaName: 'dbo',",
+				"     tableName: 'customer',",
+				"     isolationLevel: 'READ_UNCOMMITTED') ~> TargetSQLTableCustomers",
+				"SilverSourceFileCustomer select(mapColumn(",
+				"          src_customer_id = customer_id,",
+				"          src_first_name = first_name,",
+				"          src_last_name = last_name,",
+				"          src_address = address,",
+				"          src_city = city,",
+				"          src_state = state,",
+				"          src_zip = zip",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RenameSourceFile",
+				"RenameSourceFile derive(src_hashkey = crc32(concat(toString(src_customer_id),src_first_name,src_last_name,src_address,src_city,src_state,src_zip))) ~> Hashkey",
+				"Hashkey, TargetSQLTableCustomers lookup(src_customer_id == customer_id,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'auto')~> lookupTargetSourceFiles",
+				"lookupTargetSourceFiles split(isNull(customer_id),",
+				"     (src_customer_id==customer_id) && (src_hashkey!=hashkey),",
+				"     disjoint: false) ~> SplitNewandExistingRows@(insert, update)",
+				"SplitNewandExistingRows@insert derive(src_createdby = 'DataFlow',",
+				"          src_CreatedDate = currentTimestamp(),",
+				"          src_updatedBy = 'DataFlow',",
+				"          src_UpdatedDate = currentTimestamp()) ~> InsertAuditColumns",
+				"SplitNewandExistingRows@update derive(src_udpatedDate = currentTimestamp(),",
+				"          src_UpdatedBy = 'DataFlow-Updated') ~> UpdateAuditColumns",
+				"UpdateAuditColumns alterRow(updateIf((1==1))) ~> UpdateRows",
+				"InsertAuditColumns sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          customer_id as integer,",
+				"          first_name as string,",
+				"          last_name as string,",
+				"          address as string,",
+				"          city as string,",
+				"          state as string,",
+				"          zip as string,",
+				"          hashkey as long,",
+				"          createdBy as string,",
+				"          createdDate as timestamp,",
+				"          updatedDate as timestamp,",
+				"          updatedBy as string",
+				"     ),",
+				"     format: 'table',",
+				"     store: 'sqlserver',",
+				"     schemaName: 'dbo',",
+				"     tableName: 'customer',",
+				"     insertable: true,",
+				"     updateable: false,",
+				"     deletable: false,",
+				"     upsertable: false,",
+				"     stagingSchemaName: '',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          customer_id = src_customer_id,",
+				"          first_name = src_first_name,",
+				"          last_name = src_last_name,",
+				"          address = src_address,",
+				"          city = src_city,",
+				"          state = src_state,",
+				"          zip = src_zip,",
+				"          hashkey = src_hashkey,",
+				"          createdBy = src_createdby,",
+				"          createdDate = src_CreatedDate,",
+				"          updatedDate = src_UpdatedDate,",
+				"          updatedBy = src_updatedBy",
+				"     )) ~> InsertRowsSQLDatabaseCustomers",
+				"UpdateRows sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          customer_id as integer,",
+				"          first_name as string,",
+				"          last_name as string,",
+				"          address as string,",
+				"          city as string,",
+				"          state as string,",
+				"          zip as string,",
+				"          hashkey as long,",
+				"          createdBy as string,",
+				"          createdDate as timestamp,",
+				"          updatedDate as timestamp,",
+				"          updatedBy as string",
+				"     ),",
+				"     format: 'table',",
+				"     store: 'sqlserver',",
+				"     schemaName: 'dbo',",
+				"     tableName: 'customer',",
+				"     insertable: false,",
+				"     updateable: true,",
+				"     deletable: false,",
+				"     upsertable: false,",
+				"     keys:['customer_id'],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          customer_id = src_customer_id,",
+				"          first_name = src_first_name,",
+				"          last_name = src_last_name,",
+				"          address = src_address,",
+				"          city = src_city,",
+				"          state = src_state,",
+				"          zip = src_zip,",
+				"          hashkey = src_hashkey,",
+				"          createdBy,",
+				"          createdDate,",
+				"          updatedDate = src_udpatedDate,",
+				"          updatedBy = src_UpdatedBy",
+				"     )) ~> UpdateRowsSQLDatabaseCustomer"
+			]
+		}
+	}
+}

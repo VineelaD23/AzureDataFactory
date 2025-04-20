@@ -1,0 +1,40 @@
+{
+	"name": "pl_SilverLayerProject1",
+	"properties": {
+		"activities": [
+			{
+				"name": "SilverLayer",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "SilverLayerRemoveDuplicates",
+						"type": "DataFlowReference"
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "Fine"
+				}
+			}
+		],
+		"variables": {
+			"RefDate": {
+				"type": "String",
+				"defaultValue": "1900-01-01 00:00:00"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-20T17:38:58Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

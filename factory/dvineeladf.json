@@ -1,0 +1,9 @@
+{
+	"name": "dvineeladf",
+	"location": "canadacentral",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "438953eb-1d9c-4223-bda5-88ad0ae8bc38",
+		"tenantId": "49bba7a4-424b-4070-a70e-886e9dd7caef"
+	}
+}

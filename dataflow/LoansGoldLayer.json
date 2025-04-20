@@ -1,0 +1,204 @@
+{
+	"name": "LoansGoldLayer",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorage1",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sourceLoanSilver"
+				},
+				{
+					"linkedService": {
+						"referenceName": "AzureSqlDatabase1",
+						"type": "LinkedServiceReference"
+					},
+					"name": "TargetSQLDtabaseLoans"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "AzureSqlDatabase1",
+						"type": "LinkedServiceReference"
+					},
+					"name": "SQLDatabaseInsertLoans"
+				},
+				{
+					"linkedService": {
+						"referenceName": "AzureSqlDatabase1",
+						"type": "LinkedServiceReference"
+					},
+					"name": "SQLDatabaseUpdateLoans"
+				}
+			],
+			"transformations": [
+				{
+					"name": "RenameSourceColumns"
+				},
+				{
+					"name": "Hashkey"
+				},
+				{
+					"name": "lookupSourceTarget"
+				},
+				{
+					"name": "splitNewExistingRows"
+				},
+				{
+					"name": "InsertAuditColumns"
+				},
+				{
+					"name": "updateAuditColumns"
+				},
+				{
+					"name": "updateRowsLoans"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          loan_id as short,",
+				"          customer_id as short,",
+				"          loan_amount as double,",
+				"          interest_rate as double,",
+				"          loan_term as short",
+				"     ),",
+				"     useSchema: false,",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: true,",
+				"     moveFiles: ['SilverLayer/Loans','ArchieveSilver/Loans'],",
+				"     format: 'delimited',",
+				"     fileSystem: 'projectbootcamp1',",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true,",
+				"     wildcardPaths:['SilverLayer/Loans/par*']) ~> sourceLoanSilver",
+				"source(output(",
+				"          loan_id as integer,",
+				"          customer_id as integer,",
+				"          loan_amount as double,",
+				"          interest_rate as double,",
+				"          loan_term as integer,",
+				"          hashkey as long,",
+				"          createdBy as string,",
+				"          createdDate as timestamp,",
+				"          updatedDate as timestamp,",
+				"          updatedBy as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table',",
+				"     store: 'sqlserver',",
+				"     schemaName: 'dbo',",
+				"     tableName: 'loans',",
+				"     isolationLevel: 'READ_UNCOMMITTED') ~> TargetSQLDtabaseLoans",
+				"sourceLoanSilver select(mapColumn(",
+				"          src_loan_id = loan_id,",
+				"          src_customer_id = customer_id,",
+				"          src_loan_amount = loan_amount,",
+				"          src_interest_rate = interest_rate,",
+				"          src_loan_term = loan_term",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RenameSourceColumns",
+				"RenameSourceColumns derive(src_hashkey = crc32(concat(toString(src_loan_id),toString(src_customer_id),toString(src_loan_amount),toString(src_interest_rate),toString(src_loan_term)))) ~> Hashkey",
+				"Hashkey, TargetSQLDtabaseLoans lookup(src_loan_id == loan_id,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'auto')~> lookupSourceTarget",
+				"lookupSourceTarget split(isNull(loan_id),",
+				"     src_loan_id==loan_id && src_hashkey!=hashkey,",
+				"     disjoint: false) ~> splitNewExistingRows@(insert, update)",
+				"splitNewExistingRows@insert derive(src_createdBy = 'DataFlow',",
+				"          src_updatedBy = 'DataFlow',",
+				"          src_updatedDate = currentTimestamp(),",
+				"          src_createdDate = currentTimestamp()) ~> InsertAuditColumns",
+				"splitNewExistingRows@update derive(src_updatedBy = 'DataFlow-Updated',",
+				"          src_updatedDate = currentTimestamp()) ~> updateAuditColumns",
+				"updateAuditColumns alterRow(updateIf((1==1))) ~> updateRowsLoans",
+				"InsertAuditColumns sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          loan_id as integer,",
+				"          customer_id as integer,",
+				"          loan_amount as double,",
+				"          interest_rate as double,",
+				"          loan_term as integer,",
+				"          hashkey as long,",
+				"          createdBy as string,",
+				"          createdDate as timestamp,",
+				"          updatedDate as timestamp,",
+				"          updatedBy as string",
+				"     ),",
+				"     format: 'table',",
+				"     store: 'sqlserver',",
+				"     schemaName: 'dbo',",
+				"     tableName: 'loans',",
+				"     insertable: true,",
+				"     updateable: false,",
+				"     deletable: false,",
+				"     upsertable: false,",
+				"     stagingSchemaName: '',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          loan_id = src_loan_id,",
+				"          customer_id = src_customer_id,",
+				"          loan_amount = src_loan_amount,",
+				"          interest_rate = src_interest_rate,",
+				"          loan_term = src_loan_term,",
+				"          hashkey = src_hashkey,",
+				"          createdBy = src_createdBy,",
+				"          createdDate = src_createdDate,",
+				"          updatedDate = src_updatedDate,",
+				"          updatedBy = src_updatedBy",
+				"     )) ~> SQLDatabaseInsertLoans",
+				"updateRowsLoans sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          loan_id as integer,",
+				"          customer_id as integer,",
+				"          loan_amount as double,",
+				"          interest_rate as double,",
+				"          loan_term as integer,",
+				"          hashkey as long,",
+				"          createdBy as string,",
+				"          createdDate as timestamp,",
+				"          updatedDate as timestamp,",
+				"          updatedBy as string",
+				"     ),",
+				"     format: 'table',",
+				"     store: 'sqlserver',",
+				"     schemaName: 'dbo',",
+				"     tableName: 'loans',",
+				"     insertable: false,",
+				"     updateable: true,",
+				"     deletable: false,",
+				"     upsertable: false,",
+				"     keys:['loan_id'],",
+				"     stagingSchemaName: '',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          loan_id = src_loan_id,",
+				"          customer_id = src_customer_id,",
+				"          loan_amount = src_loan_amount,",
+				"          interest_rate = src_interest_rate,",
+				"          loan_term = src_loan_term,",
+				"          hashkey = src_hashkey,",
+				"          createdBy,",
+				"          createdDate,",
+				"          updatedDate = src_updatedDate,",
+				"          updatedBy = src_updatedBy",
+				"     )) ~> SQLDatabaseUpdateLoans"
+			]
+		}
+	}
+}

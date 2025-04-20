@@ -1,0 +1,196 @@
+{
+	"name": "AccountsGold",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorage1",
+						"type": "LinkedServiceReference"
+					},
+					"name": "AccountsSilverFileSource"
+				},
+				{
+					"linkedService": {
+						"referenceName": "AzureSqlDatabase1",
+						"type": "LinkedServiceReference"
+					},
+					"name": "GoldAccountsFileTargetSQL"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "AzureSqlDatabase1",
+						"type": "LinkedServiceReference"
+					},
+					"name": "SQLDatabaseUpdateAccounts"
+				},
+				{
+					"linkedService": {
+						"referenceName": "AzureSqlDatabase1",
+						"type": "LinkedServiceReference"
+					},
+					"name": "SQLDatabaseInsertAccounts"
+				}
+			],
+			"transformations": [
+				{
+					"name": "RenameColumnsSource"
+				},
+				{
+					"name": "Hashkey"
+				},
+				{
+					"name": "Lookupsourcetarget"
+				},
+				{
+					"name": "SplitNewandExistingRows"
+				},
+				{
+					"name": "NewColumnsForAudit"
+				},
+				{
+					"name": "UpdateAuditColumns"
+				},
+				{
+					"name": "UpdateRows"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          account_id as short,",
+				"          customer_id as short,",
+				"          account_type as string,",
+				"          balance as double",
+				"     ),",
+				"     useSchema: false,",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: true,",
+				"     moveFiles: ['/SilverLayer/Accounts','ArchieveSilver/Accounts'],",
+				"     format: 'delimited',",
+				"     fileSystem: 'projectbootcamp1',",
+				"     folderPath: 'SilverLayer/Accounts',",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true) ~> AccountsSilverFileSource",
+				"source(output(",
+				"          account_id as integer,",
+				"          customer_id as integer,",
+				"          account_type as string,",
+				"          balance as double,",
+				"          hashkey as long,",
+				"          createdBy as string,",
+				"          createdDate as timestamp,",
+				"          updatedDate as timestamp,",
+				"          updatedBy as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table',",
+				"     store: 'sqlserver',",
+				"     schemaName: 'dbo',",
+				"     tableName: 'accounts',",
+				"     isolationLevel: 'READ_UNCOMMITTED') ~> GoldAccountsFileTargetSQL",
+				"AccountsSilverFileSource select(mapColumn(",
+				"          src_account_id = account_id,",
+				"          src_customer_id = customer_id,",
+				"          src_account_type = account_type,",
+				"          src_balance = balance",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> RenameColumnsSource",
+				"RenameColumnsSource derive(src_hashkey = crc32(concat(toString(src_account_id),toString(src_customer_id),src_account_type,toString(src_balance)))) ~> Hashkey",
+				"Hashkey, GoldAccountsFileTargetSQL lookup(src_account_id == account_id,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'auto')~> Lookupsourcetarget",
+				"Lookupsourcetarget split(isNull(account_id),",
+				"     (src_account_id==account_id) && (src_hashkey!=hashkey),",
+				"     disjoint: false) ~> SplitNewandExistingRows@(insert, update)",
+				"SplitNewandExistingRows@insert derive(src_createdBy = 'Dataflow',",
+				"          src_createdDate = currentTimestamp(),",
+				"          src_updatedBy = 'Dataflow',",
+				"          src_updatedDate = currentTimestamp()) ~> NewColumnsForAudit",
+				"SplitNewandExistingRows@update derive(src_updatedDate = currentTimestamp(),",
+				"          src_updatedBy = 'DataFlow-Updated') ~> UpdateAuditColumns",
+				"UpdateAuditColumns alterRow(updateIf((1==1))) ~> UpdateRows",
+				"UpdateRows sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          account_id as integer,",
+				"          customer_id as integer,",
+				"          account_type as string,",
+				"          balance as double,",
+				"          hashkey as long,",
+				"          createdBy as string,",
+				"          createdDate as timestamp,",
+				"          updatedDate as timestamp,",
+				"          updatedBy as string",
+				"     ),",
+				"     format: 'table',",
+				"     store: 'sqlserver',",
+				"     schemaName: 'dbo',",
+				"     tableName: 'accounts',",
+				"     insertable: false,",
+				"     updateable: true,",
+				"     deletable: false,",
+				"     upsertable: false,",
+				"     keys:['customer_id'],",
+				"     stagingSchemaName: '',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          account_id = src_account_id,",
+				"          customer_id = src_customer_id,",
+				"          account_type = src_account_type,",
+				"          balance = src_balance,",
+				"          hashkey = src_hashkey,",
+				"          createdBy,",
+				"          createdDate,",
+				"          updatedDate = src_updatedDate,",
+				"          updatedBy = src_updatedBy",
+				"     )) ~> SQLDatabaseUpdateAccounts",
+				"NewColumnsForAudit sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          account_id as integer,",
+				"          customer_id as integer,",
+				"          account_type as string,",
+				"          balance as double,",
+				"          hashkey as long,",
+				"          createdBy as string,",
+				"          createdDate as timestamp,",
+				"          updatedDate as timestamp,",
+				"          updatedBy as string",
+				"     ),",
+				"     format: 'table',",
+				"     store: 'sqlserver',",
+				"     schemaName: 'dbo',",
+				"     tableName: 'accounts',",
+				"     insertable: true,",
+				"     updateable: false,",
+				"     deletable: false,",
+				"     upsertable: false,",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          account_id = src_account_id,",
+				"          customer_id = src_customer_id,",
+				"          account_type = src_account_type,",
+				"          balance = src_balance,",
+				"          hashkey = src_hashkey,",
+				"          createdBy = src_createdBy,",
+				"          createdDate = src_createdDate,",
+				"          updatedBy = src_updatedBy,",
+				"          updatedDate = src_updatedDate",
+				"     )) ~> SQLDatabaseInsertAccounts"
+			]
+		}
+	}
+}
