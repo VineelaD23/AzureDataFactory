@@ -1255,8 +1255,8 @@
 					"recurrence": {
 						"frequency": "Minute",
 						"interval": 20,
-						"startTime": "2025-04-19T16:45:00",
-						"endTime": "2025-04-20T17:30:00",
+						"startTime": "2025-04-19T18:50:00",
+						"endTime": "2025-04-21T17:30:00",
 						"timeZone": "Eastern Standard Time"
 					}
 				}

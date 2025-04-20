@@ -459,7 +459,7 @@
 					],
 					"transformations": [
 						{
-							"name": "aggregate1"
+							"name": "RemoveDuplicates"
 						},
 						{
 							"name": "split1"
@@ -594,7 +594,7 @@
 						"          customer_id,",
 						"          account_type,",
 						"          balance),",
-						"     column1 = first(account_id)) ~> aggregate1",
+						"     column1 = first(account_id)) ~> RemoveDuplicates",
 						"customersBronze split(isNull(customer_id) || isNull(first_name) || isNull(last_name) || isNull(address) || isNull(city) || isNull(state) || isNull(zip),",
 						"     disjoint: false) ~> split1@(newfilefornulls, removenulls)",
 						"split1@removenulls aggregate(groupBy(customer_id,",
@@ -632,7 +632,7 @@
 						"          transaction_amount),",
 						"     asc(transaction_id, true),",
 						"     rowNumber = rowNumber()) ~> RemoveDuplicatesTransactions",
-						"aggregate1 sink(allowSchemaDrift: true,",
+						"RemoveDuplicates sink(allowSchemaDrift: true,",
 						"     validateSchema: false,",
 						"     format: 'delimited',",
 						"     fileSystem: 'projectbootcamp1',",
