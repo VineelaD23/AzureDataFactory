@@ -1,5 +1,5 @@
 {
-	"name": "DelimitedText9",
+	"name": "ds_fetcheachfoldernametime",
 	"properties": {
 		"linkedServiceName": {
 			"referenceName": "FileServer1",

@@ -1,5 +1,5 @@
 {
-	"name": "DelimitedText8",
+	"name": "ds_fetchFolders",
 	"properties": {
 		"linkedServiceName": {
 			"referenceName": "FileServer1",

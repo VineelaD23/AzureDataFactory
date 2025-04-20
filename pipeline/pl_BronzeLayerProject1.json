@@ -16,7 +16,7 @@
 				"userProperties": [],
 				"typeProperties": {
 					"dataset": {
-						"referenceName": "DelimitedText8",
+						"referenceName": "ds_fetchFolders",
 						"type": "DatasetReference"
 					},
 					"fieldList": [
@@ -64,7 +64,7 @@
 							"userProperties": [],
 							"typeProperties": {
 								"dataset": {
-									"referenceName": "DelimitedText9",
+									"referenceName": "ds_fetcheachfoldernametime",
 									"type": "DatasetReference",
 									"parameters": {
 										"folderName": {
@@ -200,7 +200,7 @@
 				},
 				"inputs": [
 					{
-						"referenceName": "DelimitedText10",
+						"referenceName": "ds_sourcefilesfromlocal",
 						"type": "DatasetReference",
 						"parameters": {
 							"FolderName": {
@@ -212,7 +212,7 @@
 				],
 				"outputs": [
 					{
-						"referenceName": "DelimitedText7",
+						"referenceName": "ds_destinationbronzelayer",
 						"type": "DatasetReference"
 					}
 				]

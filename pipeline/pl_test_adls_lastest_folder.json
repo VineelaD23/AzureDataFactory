@@ -212,7 +212,7 @@
 				],
 				"outputs": [
 					{
-						"referenceName": "DelimitedText7",
+						"referenceName": "ds_destinationbronzelayer",
 						"type": "DatasetReference"
 					}
 				]

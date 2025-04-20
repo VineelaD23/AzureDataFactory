@@ -1,5 +1,5 @@
 {
-	"name": "DelimitedText7",
+	"name": "ds_destinationbronzelayer",
 	"properties": {
 		"linkedServiceName": {
 			"referenceName": "AzureDataLakeStorage1",
